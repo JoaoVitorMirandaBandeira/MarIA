@@ -3,7 +3,7 @@ import random
 import json
 import matplotlib.pyplot as plt
 import pickle
-from pyboy import PyBoy
+from pyboy.pyboy import PyBoy
 from pyboy.utils import WindowEvent
 import time
 
@@ -11,7 +11,7 @@ class Ambiente:
     def __init__(self, nome_arquivo='mario.gb', modo_silencioso=True):
         tipo_janela = "headless" if modo_silencioso else "SDL2"
         self.pyboy = PyBoy(nome_arquivo, window=tipo_janela, debug=modo_silencioso)
-        self.pyboy.set_emulation_speed(100)
+        self.pyboy.set_emulation_speed(50)
         self.mario = self.pyboy.game_wrapper
         self.mario.start_game()
 
@@ -98,14 +98,48 @@ def avaliar_fitness(individuo, ambiente):
 def iniciar_individuos(populacao):
     return [Individuo() for _ in range(populacao)]
 
-def selecao(individuos):
+def selecao(individuos, k=3):
     # TODO: Implementar seleção por torneio
+    pais = []
+    for _ in range(k):
+        # Seleciona um subconjunto aleatório de indivíduos
+        candidatos = random.sample(individuos, k)
+
+        # Seleciona o indivíduo com maior fitness no subconjunto
+        melhor_candidato = max(candidatos, key=lambda i: i.fitness)
+        pais.append(melhor_candidato)
+    return pais
     
-def cruzamento(pai1, pai2):
+def cruzamento(pai1, pai2,taxa_cruzamento=0.3):
     # TODO: Implementar cruzamento
+    filho1 = Individuo()
+    filho2 = Individuo()
+
+    for i, (acao1, duracao1) in enumerate(pai1.acoes):
+        acao2, duracao2 = pai2.acoes[i]
+
+        # Realiza cruzamento com base na taxa de cruzamento
+        if random.random() < taxa_cruzamento:
+            filho1.acoes[i] = (acao2, duracao2)
+            filho2.acoes[i] = (acao1, duracao1)
+        else:
+            filho1.acoes[i] = (acao1, duracao1)
+            filho2.acoes[i] = (acao2, duracao2)
+
+    return filho1, filho2
 
 def mutacao(individuo, taxa_mutacao=0.1):
     # TODO: Implementar mutação
+    for i, (acao, duracao) in enumerate(individuo.acoes):
+    # Realiza mutação com base na taxa de mutação
+        if random.random() < taxa_mutacao:
+            # Muta a ação
+            acao_mutada = random.choice([0, 1, 2])  # Altera para outra ação aleatória
+            duracao_mutada = random.randint(1, 10)  # Altera a duração para um valor aleatório
+
+            individuo.acoes[i] = (acao_mutada, duracao_mutada)
+
+    return None  # A função não retorna nada
 
 def imprimir_acoes_individuo(individuo):
     nomes_acoes = ["esquerda", "direita", "A"]
@@ -121,11 +155,11 @@ def algoritmo_genetico(populacao, ambiente, geracoes=100):
             individuo.fitness = avaliar_fitness(individuo, ambiente)
             print(f"Fitness: {individuo.fitness}")
 
-        selecionadas = selecao(populacao)
+        selecionadas = selecao(populacao,3)
         descendentes = []
         while len(descendentes) < len(populacao) - len(selecionadas):
             pai1, pai2 = random.sample(selecionadas, 2)
-            filho1, filho2 = cruzamento(pai1, pai2)
+            filho1, filho2 = cruzamento(pai1, pai2,0.3)
             descendentes.extend([filho1, filho2])
 
         for filho in descendentes:
