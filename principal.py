@@ -3,21 +3,22 @@ import random
 import json
 import matplotlib.pyplot as plt
 import pickle
-from pyboy.pyboy import PyBoy
+from pyboy import PyBoy
 from pyboy.utils import WindowEvent
 import time
+import os
 
 class Ambiente:
     def __init__(self, nome_arquivo='mario.gb', modo_silencioso=True):
         tipo_janela = "headless" if modo_silencioso else "SDL2"
         self.pyboy = PyBoy(nome_arquivo, window=tipo_janela, debug=modo_silencioso)
-        self.pyboy.set_emulation_speed(50)
+        self.pyboy.set_emulation_speed(500)
         self.mario = self.pyboy.game_wrapper
         self.mario.start_game()
 
     def calcular_fitness(self):
         # TODO: Pode mudar o cálculo do fitness
-        return self.mario.score + 2 * self.mario.level_progress + self.mario.time_left
+        return self.mario.score * 2 + 2 * self.mario.level_progress + self.mario.time_left
 
     def fim_de_jogo(self):
         return self.mario.lives_left == 1 or self.mario.score < 0
@@ -65,8 +66,20 @@ class Ambiente:
 class Individuo:
     # TODO: Pode mudar a quantidade de ações e a duração
     def __init__(self):
-        self.acoes = [(random.randint(0, 2), random.randint(1, 10)) for _ in range(5000)]
+        self.acoes = self.gerar_acoes_favoritas(5000, 2, 15)
         self.fitness = 0
+        self.pontos_tempo = 0
+        self.movimentos_direita = 0
+
+
+    def gerar_acoes_favoritas(self,comprimento, peso_1, max_duration):
+        acoes = []
+        for _ in range(comprimento):
+            # Gera um número com maior probabilidade para o número 1
+            numero = random.choices([0, 1, 2], weights=[1, peso_1, 1], k=1)[0]
+            acoes.append((numero, random.randint(1, max_duration)))
+        return acoes
+
 
     # TODO: Fique à vontade para mudar a função de avaliação e adicionar/remover parâmetros
     def avaliar(self, ambiente):
@@ -87,13 +100,17 @@ class Individuo:
 
         pontos_tempo = 500 if tempo_maximo > 0 else 0
         self.fitness = fitness_total + pontos_tempo + movimentos_direita * 5
-        return self.fitness
+        return self.fitness , pontos_tempo , movimentos_direita
+
+def save_log(file_name,text):
+        with open(f"./logs/{timestamp_atual}-execucao/{file_name}.txt","a") as file:
+            file.write(str(text) + '\n')
 
 # A divisão é para dar numeros mais manejáveis
 def avaliar_fitness(individuo, ambiente):
-    fitness = individuo.avaliar(ambiente)
+    fitness, pontos_tempo , movimentos_direita = individuo.avaliar(ambiente)
     fitness_normalizado = fitness / 10000
-    return fitness_normalizado
+    return fitness_normalizado, pontos_tempo , movimentos_direita
 
 def iniciar_individuos(populacao):
     return [Individuo() for _ in range(populacao)]
@@ -139,7 +156,7 @@ def mutacao(individuo, taxa_mutacao=0.1):
 
             individuo.acoes[i] = (acao_mutada, duracao_mutada)
 
-    return None  # A função não retorna nada
+    return individuo  # A função não retorna nada
 
 def imprimir_acoes_individuo(individuo):
     nomes_acoes = ["esquerda", "direita", "A"]
@@ -151,9 +168,11 @@ def algoritmo_genetico(populacao, ambiente, geracoes=100):
     melhor_fitness = -np.inf
 
     for geracao in range(geracoes):
+        save_log(f"geracao-{timestamp_atual}",f"-----------Geracao {geracao}----------")
         for individuo in populacao:
-            individuo.fitness = avaliar_fitness(individuo, ambiente)
+            individuo.fitness, individuo.pontos_tempo , individuo.movimentos_direita = avaliar_fitness(individuo, ambiente)
             print(f"Fitness: {individuo.fitness}")
+            save_log(f"geracao-{timestamp_atual}",f"Movimentos a direita: {individuo.movimentos_direita} , Pontos Tempo: {individuo.movimentos_direita}, Fitness: {str(individuo.fitness)}")
 
         selecionadas = selecao(populacao,3)
         descendentes = []
@@ -163,7 +182,7 @@ def algoritmo_genetico(populacao, ambiente, geracoes=100):
             descendentes.extend([filho1, filho2])
 
         for filho in descendentes:
-            mutacao(filho)
+            filho = mutacao(filho)
 
         populacao = selecionadas + descendentes
 
@@ -174,7 +193,8 @@ def algoritmo_genetico(populacao, ambiente, geracoes=100):
             melhor_individuo = individuo_atual
 
         print(f"Geração {geracao}: Melhor Fitness {melhor_fitness}")
-        print(f"Melhores Ações: {imprimir_acoes_individuo(melhor_individuo)}")
+        save_log(f"geracao-{timestamp_atual}",f"Geração {geracao}: Melhor Fitness {melhor_fitness}")
+        #print(f"Melhores Ações: {imprimir_acoes_individuo(melhor_individuo)}")
 
     return melhor_individuo
 
@@ -188,6 +208,13 @@ def rodar_melhor_modelo(ambiente, melhor_individuo):
 
 ambiente = Ambiente(modo_silencioso=False)
 populacao = iniciar_individuos(10)
+def criar_diretorios(caminho):
+    os.makedirs(caminho, exist_ok=True)
+    print(f"Pasta '{caminho}' criada com sucesso!")
+
+timestamp_atual = time.time()
+criar_diretorios('logs')
+criar_diretorios(f"logs/{timestamp_atual}-execucao")
 algoritmo_genetico(populacao, ambiente)
 
 # TODO: O que fazer com tamanho dos indivíduos? Podem aumentar ao longo do tempo?
