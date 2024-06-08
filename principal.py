@@ -172,7 +172,7 @@ def algoritmo_genetico(populacao, ambiente, geracoes=100):
         for individuo in populacao:
             individuo.fitness, individuo.pontos_tempo , individuo.movimentos_direita = avaliar_fitness(individuo, ambiente)
             print(f"Fitness: {individuo.fitness}")
-            save_log(f"geracao-{timestamp_atual}",f"Movimentos a direita: {individuo.movimentos_direita} , Pontos Tempo: {individuo.movimentos_direita}, Fitness: {str(individuo.fitness)}")
+            save_log(f"geracao-{timestamp_atual}",f"Movimentos a direita: {individuo.movimentos_direita} , Pontos Tempo: {individuo.pontos_tempo}, Fitness: {str(individuo.fitness)}")
 
         selecionadas = selecao(populacao,3)
         descendentes = []
